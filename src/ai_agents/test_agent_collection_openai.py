@@ -4,7 +4,7 @@ from unittest import TestCase
 from openai import OpenAIError
 from pydantic import Field, BaseModel
 
-from src.ai_agents.agent import agent
+from ai_agents.agent import agent
 
 
 class Name(BaseModel):
@@ -36,7 +36,7 @@ class TestAgentCollectionOpenAI(TestCase):
     def setUp(self):
         try:
             import openai
-            from src.ai_agents.agent_collection_openai import AgentCollectionOpenAI
+            from ai_agents.agent_collection_openai import AgentCollectionOpenAI
         except ImportError:
             self.skipTest("OpenAI SDK not installed")
         self.client = None

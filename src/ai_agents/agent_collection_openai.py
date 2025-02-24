@@ -3,7 +3,7 @@ from typing import TypedDict, Literal, List
 
 from openai.types.chat import ChatCompletionMessageToolCall
 
-from src.ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
 
 
 class OpenAITool(TypedDict):

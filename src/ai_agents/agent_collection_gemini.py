@@ -2,7 +2,7 @@ from typing import List
 
 from google.genai.types import Tool, FunctionDeclaration, FunctionCall
 
-from src.ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
 
 
 class AgentCollectionGemini(AgentCollection[Tool, FunctionCall]):

@@ -2,7 +2,7 @@ from typing import List
 
 from anthropic.types import ToolParam, ToolUseBlock
 
-from src.ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
 
 
 class AgentCollectionAnthropic(AgentCollection[ToolParam, ToolUseBlock]):

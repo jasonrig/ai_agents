@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from src.ai_agents.agent import agent
+from ai_agents.agent import agent
 
 
 @agent()
@@ -28,7 +28,7 @@ class TestAgentCollectionGemini(TestCase):
         try:
             from google import genai
             from google.genai import types
-            from src.ai_agents.agent_collection_gemini import AgentCollectionGemini
+            from ai_agents.agent_collection_gemini import AgentCollectionGemini
         except ImportError:
             self.skipTest("Gemini SDK not installed")
         self.collection = AgentCollectionGemini(say_hello, say_goodbye)

@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from src.ai_agents.agent import agent
+from ai_agents.agent import agent
 
 
 @agent()
@@ -26,7 +26,7 @@ class TestAgentCollectionAnthropic(TestCase):
     def setUp(self):
         try:
             import anthropic
-            from src.ai_agents.agent_collection_anthropic import AgentCollectionAnthropic
+            from ai_agents.agent_collection_anthropic import AgentCollectionAnthropic
         except ImportError:
             self.skipTest("Anthropic SDK not installed")
         self.client = anthropic.Anthropic()

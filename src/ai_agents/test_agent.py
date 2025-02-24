@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from src.ai_agents.agent import agent, call_with_params, input_schema, agent_metadata, AgentCollection, FunctionPayload
+from ai_agents.agent import agent, call_with_params, input_schema, agent_metadata, AgentCollection, FunctionPayload
 
 
 # Plain agent with no annotations
