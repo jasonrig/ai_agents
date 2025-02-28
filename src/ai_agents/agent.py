@@ -141,10 +141,17 @@ def agent(
     return add_agent_metadata
 
 
+class AgentNotDecoratedError(Exception):
+    """Raised when a function without the @agent decorator is used"""
+    pass
+
+
 def agent_metadata(fn: Callable) -> AgentMetadata:
-    assert hasattr(fn, "__agent_metadata__") and isinstance(fn.__agent_metadata__,
-                                                            AgentMetadata), "Function is not an agent, did you forget to add the @agent decorator?"
-    return getattr(fn, "__agent_metadata__")
+    try:
+        return getattr(fn, "__agent_metadata__")
+    except AttributeError as e:
+        raise AgentNotDecoratedError(
+            f"Function {fn.__name__} is not an agent, did you forget to add the @agent decorator?") from e
 
 
 def call_with_params(fn, params: RawParameters):

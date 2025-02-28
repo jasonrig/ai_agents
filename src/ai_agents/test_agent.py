@@ -6,7 +6,7 @@ from unittest import TestCase
 from pydantic import Field
 
 from ai_agents.agent import agent, call_with_params, input_schema, agent_metadata, AgentCollection, \
-    FunctionInputPayload, FunctionOutputPayload
+    FunctionInputPayload, FunctionOutputPayload, AgentNotDecoratedError
 
 
 # Plain agent with no annotations
@@ -48,6 +48,10 @@ def say_hello_docstring(name: str):
     return f"Hello, {name}!"
 
 
+def unannotated_function(name: str):
+    return f"Hello, {name}!"
+
+
 # Class-based agent
 @agent(description="A greeting agent")
 class SayHello:
@@ -74,6 +78,10 @@ agents = [
 
 
 class TestAgent(TestCase):
+
+    def test_unannotated_function_throw_error(self):
+        with self.assertRaises(AgentNotDecoratedError):
+            agent_metadata(unannotated_function)
 
     def test_async_marked_correctly(self):
         self.assertTrue(agent_metadata(say_hello_async).is_async)
