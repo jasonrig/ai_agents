@@ -5,7 +5,8 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from ai_agents.agent import agent, call_with_params, input_schema, agent_metadata, AgentCollection, FunctionPayload
+from ai_agents.agent import agent, call_with_params, input_schema, agent_metadata, AgentCollection, \
+    FunctionInputPayload, FunctionOutputPayload
 
 
 # Plain agent with no annotations
@@ -167,8 +168,8 @@ class TestAgentCollection(TestCase):
         def tools(self) -> List[Any]:
             pass
 
-        def extract_parameters(self, inp) -> FunctionPayload:
-            return FunctionPayload(name=inp.name, arguments=inp.payload)
+        def extract_parameters(self, inp) -> FunctionInputPayload:
+            return FunctionInputPayload(name=inp.name, arguments=inp.payload)
 
     def setUp(self):
         self.collection = TestAgentCollection.DummyCollection(say_hello, say_hello_async)
@@ -176,14 +177,18 @@ class TestAgentCollection(TestCase):
     def test_invoke_fn(self):
         single_fn_result = self.collection.invoke_fn(
             TestAgentCollection.DummyPayload(name="say_hello", payload={"name": "Alice"}))
-        self.assertDictEqual({"say_hello": "Hello, Alice!"}, single_fn_result)
+        self.assertDictEqual({"say_hello": FunctionOutputPayload(result='Hello, Alice!', extras=None)},
+                             single_fn_result)
 
         single_async_fn_result = self.collection.invoke_fn(
             TestAgentCollection.DummyPayload(name="say_hello_async", payload={"name": "Alice"}))
-        self.assertDictEqual({"say_hello_async": "Hello, Alice!"}, single_async_fn_result)
+        self.assertDictEqual({"say_hello_async": FunctionOutputPayload(result='Hello, Alice!', extras=None)},
+                             single_async_fn_result)
 
         multi_fn_result = self.collection.invoke_fn(
             TestAgentCollection.DummyPayload(name="say_hello", payload={"name": "Alice"}),
             TestAgentCollection.DummyPayload(name="say_hello_async", payload={"name": "Bob"})
         )
-        self.assertDictEqual({"say_hello": "Hello, Alice!", "say_hello_async": "Hello, Bob!"}, multi_fn_result)
+        self.assertDictEqual({"say_hello": FunctionOutputPayload(result='Hello, Alice!', extras=None),
+                              "say_hello_async": FunctionOutputPayload(result='Hello, Bob!', extras=None)},
+                             multi_fn_result)

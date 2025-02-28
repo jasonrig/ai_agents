@@ -1,6 +1,7 @@
 from typing import Annotated
 from unittest import TestCase
 
+from anthropic.types import ToolUseBlock
 from pydantic import Field
 
 from ai_agents.agent import agent
@@ -61,8 +62,9 @@ class TestAgentCollectionAnthropic(TestCase):
             )
         except TypeError:
             self.skipTest("Call to Anthropic API failed. Check your API key.")
-        fn_output = self.collection.invoke_fn(message.content[0])
-        self.assertEqual({"say_hello": "Hello, Alice!"}, fn_output)
+        fn_output = self.collection.invoke_fn(next(filter(lambda x: isinstance(x, ToolUseBlock), message.content)))
+        self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
+        self.assertEqual("Hello, Alice!", fn_output["say_hello"].result)
 
         message = self.client.messages.create(
             model="claude-3-haiku-20240307",
@@ -75,5 +77,6 @@ class TestAgentCollectionAnthropic(TestCase):
                 }
             ]
         )
-        fn_output = self.collection.invoke_fn(message.content[0])
-        self.assertEqual({"say_goodbye": "Goodbye, Alice!"}, fn_output)
+        fn_output = self.collection.invoke_fn(next(filter(lambda x: isinstance(x, ToolUseBlock), message.content)))
+        self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
+        self.assertEqual("Goodbye, Alice!", fn_output["say_goodbye"].result)

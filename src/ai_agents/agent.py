@@ -4,17 +4,29 @@ import dataclasses
 import inspect
 from asyncio import AbstractEventLoop
 from typing import Callable, get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
-    NamedTuple, Dict, Tuple
+    Dict, Tuple
 
 import jsonref
 from jsonref import JsonRef
 from pydantic import create_model, BaseModel, Field
 
 RawParameters = Union[str, dict]
-FunctionPayload = NamedTuple("FunctionPayload", [("name", str), ("arguments", RawParameters)])
 ToolType = TypeVar("ToolType")
 FunctionInput = TypeVar("FunctionInput")
 FunctionOutput = TypeVar("FunctionOutput", default=Any)
+
+
+@dataclasses.dataclass
+class FunctionInputPayload:
+    name: str
+    arguments: RawParameters
+    extras: Optional[Any] = None
+
+
+@dataclasses.dataclass
+class FunctionOutputPayload:
+    result: FunctionOutput
+    extras: Optional[Any] = None
 
 
 def _use_or_replace_loop(current_loop: Optional[AbstractEventLoop]) -> AbstractEventLoop:
@@ -42,33 +54,33 @@ class AgentCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput])
         ...
 
     @abc.abstractmethod
-    def extract_parameters(self, inp: FunctionInput) -> FunctionPayload:
+    def extract_parameters(self, inp: FunctionInput) -> FunctionInputPayload:
         """
         Extract the parameters from the input
         """
         ...
 
-    async def invoke_fn_async(self, *functions: FunctionInput) -> Dict[str, FunctionOutput]:
+    async def invoke_fn_async(self, *functions: FunctionInput) -> Dict[str, FunctionOutputPayload]:
         assert len(functions) > 0, "At least one function must be provided"
 
-        async def run_as_async(_name, _params):
-            return _name, self(_name, _params)
+        async def run_as_async(_name, _params, _extras):
+            return _name, FunctionOutputPayload(result=self(_name, _params), extras=_extras)
 
-        async def run(_name, _params):
-            return _name, await self(_name, _params)
+        async def run(_name, _params, _extras):
+            return _name, FunctionOutputPayload(result=await self(_name, _params), extras=_extras)
 
         lambdas = list()
         for function in functions:
             params = self.extract_parameters(function)
             metadata, _ = self._agents[params.name]
             if not metadata.is_async:
-                lambdas.append(run_as_async(params.name, params.arguments))
+                lambdas.append(run_as_async(params.name, params.arguments, params.extras))
             else:
-                lambdas.append(run(params.name, params.arguments))
+                lambdas.append(run(params.name, params.arguments, params.extras))
         return dict(await asyncio.gather(*lambdas))
 
-    def invoke_fn(self, *functions: FunctionInput, loop: Optional[AbstractEventLoop] = None) -> Union[
-        FunctionOutput, Dict[str, FunctionOutput]]:
+    def invoke_fn(self, *functions: FunctionInput, loop: Optional[AbstractEventLoop] = None) -> Dict[
+        str, FunctionOutputPayload]:
         with asyncio.Runner(loop_factory=lambda: _use_or_replace_loop(loop)) as runner:
             return runner.run(self.invoke_fn_async(*functions))
 

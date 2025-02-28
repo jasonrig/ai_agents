@@ -3,7 +3,7 @@ from typing import TypedDict, Literal, List
 
 from openai.types.chat import ChatCompletionMessageToolCall
 
-from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionInputPayload
 
 
 class OpenAITool(TypedDict):
@@ -39,5 +39,5 @@ class AgentCollectionOpenAI(AgentCollection[OpenAITool, ChatCompletionMessageToo
             })
         return deepcopy(tools)
 
-    def extract_parameters(self, inp: ChatCompletionMessageToolCall) -> FunctionPayload:
-        return FunctionPayload(inp.function.name, inp.function.arguments)
+    def extract_parameters(self, inp: ChatCompletionMessageToolCall) -> FunctionInputPayload:
+        return FunctionInputPayload(inp.function.name, inp.function.arguments, {"tool_call_id": inp.id})

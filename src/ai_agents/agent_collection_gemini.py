@@ -2,7 +2,7 @@ from typing import List
 
 from google.genai.types import Tool, FunctionDeclaration, FunctionCall
 
-from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionInputPayload
 
 
 class AgentCollectionGemini(AgentCollection[Tool, FunctionCall]):
@@ -22,5 +22,5 @@ class AgentCollectionGemini(AgentCollection[Tool, FunctionCall]):
             ))
         return tools
 
-    def extract_parameters(self, inp: FunctionCall) -> FunctionPayload:
-        return FunctionPayload(inp.name, inp.args)
+    def extract_parameters(self, inp: FunctionCall) -> FunctionInputPayload:
+        return FunctionInputPayload(inp.name, inp.args)

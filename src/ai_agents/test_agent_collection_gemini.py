@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from ai_agents.agent import agent
+from ai_agents.agent import agent, FunctionOutputPayload
 
 
 @agent()
@@ -62,7 +62,7 @@ class TestAgentCollectionGemini(TestCase):
             config=self.model_config,
         )
         result = self.collection.invoke_fn(response.function_calls[0])
-        self.assertEqual({"say_hello": "Hello, Alice!"}, result)
+        self.assertEqual({"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras=None)}, result)
 
         response = self.client.models.generate_content(
             model="gemini-2.0-flash",
@@ -70,4 +70,4 @@ class TestAgentCollectionGemini(TestCase):
             config=self.model_config,
         )
         result = self.collection.invoke_fn(response.function_calls[0])
-        self.assertEqual({"say_goodbye": "Goodbye, Alice!"}, result)
+        self.assertEqual({"say_goodbye": FunctionOutputPayload(result="Goodbye, Alice!", extras=None)}, result)

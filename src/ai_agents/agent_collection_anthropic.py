@@ -2,7 +2,7 @@ from typing import List
 
 from anthropic.types import ToolParam, ToolUseBlock
 
-from ai_agents.agent import AgentCollection, input_schema, FunctionPayload
+from ai_agents.agent import AgentCollection, input_schema, FunctionInputPayload
 
 
 class AgentCollectionAnthropic(AgentCollection[ToolParam, ToolUseBlock]):
@@ -19,5 +19,5 @@ class AgentCollectionAnthropic(AgentCollection[ToolParam, ToolUseBlock]):
             tools.append(tool)
         return tools
 
-    def extract_parameters(self, inp: ToolUseBlock) -> FunctionPayload:
-        return FunctionPayload(inp.name, inp.input)
+    def extract_parameters(self, inp: ToolUseBlock) -> FunctionInputPayload:
+        return FunctionInputPayload(inp.name, inp.input, {"tool_call_id": inp.id})

@@ -178,7 +178,8 @@ class TestAgentCollectionOpenAI(TestCase):
             ]
         )
         fn_output = self.collection.invoke_fn(message.choices[0].message.tool_calls[0])
-        self.assertEqual({"say_hello": "Hello, Alice Peterson!"}, fn_output)
+        self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
+        self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
         message = self.client.chat.completions.create(
             model="gpt-4o",
@@ -192,7 +193,8 @@ class TestAgentCollectionOpenAI(TestCase):
             ]
         )
         fn_output = self.collection.invoke_fn(message.choices[0].message.tool_calls[0])
-        self.assertEqual({"say_goodbye": "Goodbye, Alice Peterson!"}, fn_output)
+        self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
+        self.assertEqual("Goodbye, Alice Peterson!", fn_output["say_goodbye"].result)
 
     def test_openai_strict(self):
         if self.client is None:
@@ -210,7 +212,8 @@ class TestAgentCollectionOpenAI(TestCase):
             ]
         )
         fn_output = self.collection.invoke_fn(message.choices[0].message.tool_calls[0])
-        self.assertEqual({"say_hello": "Hello, Alice Peterson!"}, fn_output)
+        self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
+        self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
         message = self.client.chat.completions.create(
             model="gpt-4o-mini",
@@ -224,4 +227,5 @@ class TestAgentCollectionOpenAI(TestCase):
             ]
         )
         fn_output = self.collection.invoke_fn(message.choices[0].message.tool_calls[0])
-        self.assertEqual({"say_goodbye": "Goodbye, Alice Peterson!"}, fn_output)
+        self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
+        self.assertEqual("Goodbye, Alice Peterson!", fn_output["say_goodbye"].result)
