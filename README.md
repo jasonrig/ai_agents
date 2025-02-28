@@ -119,6 +119,28 @@ def format_result(number: Annotated[float, Field(description="Number to format")
 collection = AgentCollectionOpenAI(calculate_area, format_result)
 ```
 
+### Function Return Values
+
+When invoking functions through the agent collection, the results are wrapped in a `FunctionOutputPayload` class:
+
+```python
+@dataclasses.dataclass
+class FunctionOutputPayload:
+    result: FunctionOutput  # The actual return value from the function
+    extras: Optional[Any] = None  # Additional metadata like tool_call_id
+```
+
+This structure serves two important purposes:
+1. It provides access to the actual return value of your function via the `result` field
+2. It exposes LLM-specific metadata through the `extras` field
+
+The `extras` field is particularly useful as it contains provider-specific information such as:
+- For OpenAI: The `tool_call_id` which is needed when responding to function calls
+- For Anthropic: The `tool_call_id` from Claude's tool use blocks
+- For other providers: Any additional metadata that might be useful for tracking or debugging
+
+This design allows you to maintain provider-specific context while working with a consistent interface across different LLM platforms.
+
 ### Using with OpenAI
 
 ```python
@@ -141,7 +163,14 @@ message = client.chat.completions.create(
 
 # Execute the function call
 result = collection.invoke_fn(message.choices[0].message.tool_calls[0])
-# Returns: {"say_hello": "Hello, Alice!"}
+# Returns: {"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras={"tool_call_id": "..."})}
+
+# Access the actual function output
+greeting = result["say_hello"].result  # "Hello, Alice!"
+
+# Access the tool_call_id for use in assistant messages
+tool_call_id = result["say_hello"].extras["tool_call_id"]
+# Use in response: {"tool_call_id": tool_call_id, "role": "tool", "content": greeting}
 ```
 
 ### Using with Anthropic
@@ -164,9 +193,15 @@ message = client.messages.create(
     messages=[{"role": "user", "content": "Say hello to Alice"}]
 )
 
+# Get the tool use block from the response
+tool_use_block = next(filter(lambda x: isinstance(x, ToolUseBlock), message.content))
+
 # Execute the function call
-result = collection.invoke_fn(message.content[0])
-# Returns: {"say_hello": "Hello, Alice!"}
+result = collection.invoke_fn(tool_use_block)
+# Returns: {"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras={"tool_call_id": "..."})}
+
+# Access the actual function output
+greeting = result["say_hello"].result  # "Hello, Alice!"
 ```
 
 ### Using with Google Gemini
@@ -193,7 +228,25 @@ response = client.models.generate_content(
 
 # Execute the function call
 result = collection.invoke_fn(response.function_calls[0])
-# Returns: {"say_hello": "Hello, Alice!"}
+# Returns: {"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras=None)}
+
+# Access the actual function output
+greeting = result["say_hello"].result  # "Hello, Alice!"
+```
+
+### Multiple Function Calls
+
+You can invoke multiple functions in a single call:
+
+```python
+results = collection.invoke_fn(
+    function_call_1,
+    function_call_2
+)
+
+# Access individual results
+result1 = results["function_name_1"].result
+result2 = results["function_name_2"].result
 ```
 
 ### Advanced Features
