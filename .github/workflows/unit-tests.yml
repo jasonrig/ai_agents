@@ -1,0 +1,36 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: Python 3.13
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+
+      - name: Run unit tests
+        env:
+          AI_AGENTS_SKIP_OPENAI_LIVE_TESTS: "1"
+          AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS: "1"
+          AI_AGENTS_SKIP_GEMINI_LIVE_TESTS: "1"
+        run: uv run --locked --all-extras python -W error::DeprecationWarning -m unittest discover -s src
