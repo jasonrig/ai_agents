@@ -1,11 +1,16 @@
 import os
 from types import SimpleNamespace
 from typing import Annotated
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
 from pydantic import Field
 
 from ai_agents.tool import tool, FunctionOutputPayload
+
+skip_anthropic_live_tests = skipIf(
+    os.environ.get("AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS"),
+    "AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS is set",
+)
 
 
 @tool()
@@ -61,10 +66,8 @@ class TestToolCollectionAnthropic(TestCase):
             )
         }, result)
 
+    @skip_anthropic_live_tests
     def test_anthropic(self):
-        if os.environ.get("AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS"):
-            self.skipTest("AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS is set")
-
         client = self.anthropic.Anthropic()
         tools = self.collection.tools()
         message = client.messages.create(

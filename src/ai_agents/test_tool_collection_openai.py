@@ -1,11 +1,16 @@
 import os
 from types import SimpleNamespace
 from typing import Annotated
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
 from pydantic import Field, BaseModel
 
 from ai_agents.tool import tool, FunctionOutputPayload
+
+skip_openai_live_tests = skipIf(
+    os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"),
+    "AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set",
+)
 
 
 class Name(BaseModel):
@@ -177,10 +182,8 @@ class TestToolCollectionOpenAI(TestCase):
             )
         }, result)
 
+    @skip_openai_live_tests
     def test_openai_non_strict(self):
-        if os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"):
-            self.skipTest("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set")
-
         client = self.openai.Client()
         tools = self.collection.tools(strict=False)
         message = client.chat.completions.create(
@@ -213,10 +216,8 @@ class TestToolCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
         self.assertEqual("Goodbye, Alice Peterson!", fn_output["say_goodbye"].result)
 
+    @skip_openai_live_tests
     def test_openai_strict(self):
-        if os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"):
-            self.skipTest("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set")
-
         client = self.openai.Client()
         tools = self.collection.tools(strict=True)
         message = client.chat.completions.create(

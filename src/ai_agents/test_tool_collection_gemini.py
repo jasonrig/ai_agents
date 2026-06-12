@@ -1,11 +1,16 @@
 import os
 from types import SimpleNamespace
 from typing import Annotated
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
 from pydantic import Field
 
 from ai_agents.tool import tool, FunctionOutputPayload
+
+skip_gemini_live_tests = skipIf(
+    os.environ.get("AI_AGENTS_SKIP_GEMINI_LIVE_TESTS"),
+    "AI_AGENTS_SKIP_GEMINI_LIVE_TESTS is set",
+)
 
 
 @tool()
@@ -54,10 +59,8 @@ class TestToolCollectionGemini(TestCase):
 
         self.assertEqual({"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras=None)}, result)
 
+    @skip_gemini_live_tests
     def test_gemini(self):
-        if os.environ.get("AI_AGENTS_SKIP_GEMINI_LIVE_TESTS"):
-            self.skipTest("AI_AGENTS_SKIP_GEMINI_LIVE_TESTS is set")
-
         client = self.genai.Client()
         model_config = self.types.GenerateContentConfig(
             tools=self.collection.tools(),
