@@ -161,7 +161,7 @@ def call_with_params(fn, params: RawParameters):
     metadata = tool_metadata(fn)
     params = metadata.model.model_validate_json(params) if isinstance(params, str) else metadata.model.model_validate(
         params)
-    params = {k: getattr(params, k) for k in params.model_fields.keys()}
+    params = {k: getattr(params, k) for k in type(params).model_fields.keys()}
     return fn(**params)
 
 

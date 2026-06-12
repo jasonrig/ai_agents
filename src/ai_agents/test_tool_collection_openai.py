@@ -1,9 +1,10 @@
+from types import SimpleNamespace
 from typing import Annotated
 from unittest import TestCase
 
 from pydantic import Field, BaseModel
 
-from ai_agents.tool import tool
+from ai_agents.tool import tool, FunctionOutputPayload
 
 
 class Name(BaseModel):
@@ -161,6 +162,24 @@ class TestToolCollectionOpenAI(TestCase):
                 }
             }
         }, all_tools[1])
+
+    def test_invoke_fn_with_tool_call_payload(self):
+        tool_call = SimpleNamespace(
+            id="call_123",
+            function=SimpleNamespace(
+                name="say_hello",
+                arguments='{"name": {"first_name": "Alice", "last_name": "Peterson"}}',
+            ),
+        )
+
+        result = self.collection.invoke_fn(tool_call)
+
+        self.assertEqual({
+            "say_hello": FunctionOutputPayload(
+                result="Hello, Alice Peterson!",
+                extras={"tool_call_id": "call_123"},
+            )
+        }, result)
 
     def test_openai_non_strict(self):
         if self.client is None:

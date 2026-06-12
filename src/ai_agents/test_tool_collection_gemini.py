@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from typing import Annotated
 from unittest import TestCase
 
@@ -51,6 +52,13 @@ class TestToolCollectionGemini(TestCase):
         self.assertEqual("name", list(fn_schema[1].keys())[0])
         self.assertEqual("Name of the person to farewell", fn_schema[0]["name"].description)
         self.assertEqual("Name of the person to greet", fn_schema[1]["name"].description)
+
+    def test_invoke_fn_with_function_call_payload(self):
+        function_call = SimpleNamespace(name="say_hello", args={"name": "Alice"})
+
+        result = self.collection.invoke_fn(function_call)
+
+        self.assertEqual({"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras=None)}, result)
 
     def test_gemini(self):
         if self.client is None:
