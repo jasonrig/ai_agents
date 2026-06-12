@@ -35,16 +35,16 @@ def _use_or_replace_loop(current_loop: Optional[AbstractEventLoop]) -> AbstractE
     return current_loop
 
 
-class AgentCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
-    def __init__(self, *agents: Callable):
-        self._agents: Dict[str, Tuple[AgentMetadata, Callable]] = dict()
-        for a in agents:
-            metadata = agent_metadata(a)
-            self._agents[metadata.name] = (metadata, a)
+class ToolCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
+    def __init__(self, *tools: Callable):
+        self._tools: Dict[str, Tuple[ToolMetadata, Callable]] = dict()
+        for candidate_tool in tools:
+            metadata = tool_metadata(candidate_tool)
+            self._tools[metadata.name] = (metadata, candidate_tool)
 
     def __call__(self, name, params: RawParameters) -> FunctionOutput:
-        _, agent = self._agents[name]
-        return call_with_params(agent, params)
+        _, callable_tool = self._tools[name]
+        return call_with_params(callable_tool, params)
 
     @abc.abstractmethod
     def tools(self) -> List[ToolType]:
@@ -72,7 +72,7 @@ class AgentCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput])
         lambdas = list()
         for function in functions:
             params = self.extract_parameters(function)
-            metadata, _ = self._agents[params.name]
+            metadata, _ = self._tools[params.name]
             if not metadata.is_async:
                 lambdas.append(run_as_async(params.name, params.arguments, params.extras))
             else:
@@ -86,24 +86,24 @@ class AgentCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput])
 
 
 @dataclasses.dataclass
-class AgentMetadata:
+class ToolMetadata:
     name: str
     description: str
     model: Type[BaseModel]
     is_async: bool
 
 
-def agent(
+def tool(
         name: Optional[str] = None,
         description: Optional[str] = None
 ):
     """
-    Create an agent from a function
-    :param name: The name of the agent, defaults to the function name
-    :param description: The description of the agent, defaults to the function docstring
+    Create a tool from a function
+    :param name: The name of the tool, defaults to the function name
+    :param description: The description of the tool, defaults to the function docstring
     """
 
-    def add_agent_metadata(func: Callable):
+    def add_tool_metadata(func: Callable):
 
         # "original_func" is the thing to which we will attach metadata,
         # "func" is the thing we will infer metadata from
@@ -130,7 +130,7 @@ def agent(
             del hints["return"]
 
         # Attach the metadata to the function or class
-        original_func.__agent_metadata__ = AgentMetadata(
+        original_func.__tool_metadata__ = ToolMetadata(
             name=fn_name,
             description=fn_description,
             model=create_model(fn_name, __doc__=fn_description, **hints),
@@ -138,27 +138,27 @@ def agent(
         )
         return original_func
 
-    return add_agent_metadata
+    return add_tool_metadata
 
 
-class AgentNotDecoratedError(Exception):
-    """Raised when a function without the @agent decorator is used"""
+class ToolNotDecoratedError(Exception):
+    """Raised when a function without the @tool decorator is used"""
     pass
 
 
-def agent_metadata(fn: Callable) -> AgentMetadata:
+def tool_metadata(fn: Callable) -> ToolMetadata:
     try:
-        return getattr(fn, "__agent_metadata__")
+        return getattr(fn, "__tool_metadata__")
     except AttributeError as e:
-        raise AgentNotDecoratedError(
-            f"Function {fn.__name__} is not an agent, did you forget to add the @agent decorator?") from e
+        raise ToolNotDecoratedError(
+            f"Function {fn.__name__} is not a tool, did you forget to add the @tool decorator?") from e
 
 
 def call_with_params(fn, params: RawParameters):
     """
     Call the function with parameters as either a JSON string or a dictionary
     """
-    metadata = agent_metadata(fn)
+    metadata = tool_metadata(fn)
     params = metadata.model.model_validate_json(params) if isinstance(params, str) else metadata.model.model_validate(
         params)
     params = {k: getattr(params, k) for k in params.model_fields.keys()}
@@ -179,7 +179,7 @@ def input_schema(fn) -> JsonRef:
             for prop in obj["properties"].values():
                 remove_title_recursive(prop)
 
-    schema = jsonref.replace_refs(agent_metadata(fn).model.model_json_schema(), lazy_load=False)
+    schema = jsonref.replace_refs(tool_metadata(fn).model.model_json_schema(), lazy_load=False)
     if "$defs" in schema:
         del schema["$defs"]
     remove_title_recursive(schema)

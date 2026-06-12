@@ -3,10 +3,10 @@ from unittest import TestCase
 
 from pydantic import Field
 
-from ai_agents.agent import agent, FunctionOutputPayload
+from ai_agents.tool import tool, FunctionOutputPayload
 
 
-@agent()
+@tool()
 def say_hello(name: Annotated[str, Field(description="Name of the person to greet")]):
     """
     Use this function to say hello to someone
@@ -14,7 +14,7 @@ def say_hello(name: Annotated[str, Field(description="Name of the person to gree
     return f"Hello, {name}!"
 
 
-@agent()
+@tool()
 def say_goodbye(name: Annotated[str, Field(description="Name of the person to farewell")]):
     """
     Use this function to say goodbye to someone
@@ -22,16 +22,16 @@ def say_goodbye(name: Annotated[str, Field(description="Name of the person to fa
     return f"Goodbye, {name}!"
 
 
-class TestAgentCollectionGemini(TestCase):
+class TestToolCollectionGemini(TestCase):
     def setUp(self):
         self.client = None
         try:
             from google import genai
             from google.genai import types
-            from ai_agents.agent_collection_gemini import AgentCollectionGemini
+            from ai_agents.tool_collection_gemini import ToolCollectionGemini
         except ImportError:
             self.skipTest("Gemini SDK not installed")
-        self.collection = AgentCollectionGemini(say_hello, say_goodbye)
+        self.collection = ToolCollectionGemini(say_hello, say_goodbye)
         self.client = None
         try:
             self.client = genai.Client()

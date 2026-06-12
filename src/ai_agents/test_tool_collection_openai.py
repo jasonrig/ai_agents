@@ -1,10 +1,9 @@
 from typing import Annotated
 from unittest import TestCase
 
-from openai import OpenAIError
 from pydantic import Field, BaseModel
 
-from ai_agents.agent import agent
+from ai_agents.tool import tool
 
 
 class Name(BaseModel):
@@ -12,7 +11,7 @@ class Name(BaseModel):
     last_name: str
 
 
-@agent()
+@tool()
 def say_hello(name: Annotated[Name, Field(description="Name of the person to greet")]):
     """
     Use this function to say hello to someone
@@ -20,7 +19,7 @@ def say_hello(name: Annotated[Name, Field(description="Name of the person to gre
     return f"Hello, {name.first_name} {name.last_name}!"
 
 
-@agent()
+@tool()
 def say_goodbye(name: Annotated[Name, Field(description="Name of the person to farewell")]):
     """
     Use this function to say goodbye to someone
@@ -28,7 +27,7 @@ def say_goodbye(name: Annotated[Name, Field(description="Name of the person to f
     return f"Goodbye, {name.first_name} {name.last_name}!"
 
 
-class TestAgentCollectionOpenAI(TestCase):
+class TestToolCollectionOpenAI(TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.maxDiff = None
@@ -36,7 +35,8 @@ class TestAgentCollectionOpenAI(TestCase):
     def setUp(self):
         try:
             import openai
-            from ai_agents.agent_collection_openai import AgentCollectionOpenAI
+            from openai import OpenAIError
+            from ai_agents.tool_collection_openai import ToolCollectionOpenAI
         except ImportError:
             self.skipTest("OpenAI SDK not installed")
         self.client = None
@@ -44,7 +44,7 @@ class TestAgentCollectionOpenAI(TestCase):
             self.client = openai.Client()
         except OpenAIError:
             self.client = None
-        self.collection = AgentCollectionOpenAI(say_hello, say_goodbye)
+        self.collection = ToolCollectionOpenAI(say_hello, say_goodbye)
 
     def test_tools_non_strict(self):
         all_tools = sorted(self.collection.tools(strict=False), key=lambda x: x["function"]["name"])

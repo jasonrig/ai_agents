@@ -1,7 +1,7 @@
 [project]
 name = "ai-agents"
-version = "1.0.0"
-description = "Simple AI agent decorator for LLMs usage"
+version = "2.0.0"
+description = "Simple AI tool decorator for LLM provider usage"
 requires-python = ">=3.9"
 authors = [
     { name = "Jason Rigby", email = "hello@jasonrig.by" },

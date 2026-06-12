@@ -2,14 +2,14 @@ from typing import List
 
 from anthropic.types import ToolParam, ToolUseBlock
 
-from ai_agents.agent import AgentCollection, input_schema, FunctionInputPayload
+from ai_agents.tool import ToolCollection, input_schema, FunctionInputPayload
 
 
-class AgentCollectionAnthropic(AgentCollection[ToolParam, ToolUseBlock]):
+class ToolCollectionAnthropic(ToolCollection[ToolParam, ToolUseBlock]):
     def tools(self) -> List[ToolParam]:
         tools = list()
-        for metadata, agent in self._agents.values():
-            schema = input_schema(agent)
+        for metadata, callable_tool in self._tools.values():
+            schema = input_schema(callable_tool)
             del schema["description"]
             tool: ToolParam = {
                 "name": metadata.name,

@@ -1,6 +1,6 @@
 # AI Agents
 
-A simple Python decorator-based framework for creating function-calling agents compatible with major LLM providers (OpenAI, Anthropic, and Google Gemini).
+A simple Python decorator-based framework for exposing function-calling tools compatible with major LLM providers (OpenAI, Anthropic, and Google Gemini).
 
 ## Project Status
 
@@ -8,14 +8,14 @@ This project is made public to benefit the community, but please note that it's 
 
 ## Documentation Guide
 
-Agents can be documented in several ways:
+Tools can be documented in several ways:
 
 ### Using Docstrings
 
-The docstring of the function becomes the agent's description:
+The docstring of the function becomes the tool's description:
 
 ```python
-@agent()
+@tool()
 def calculate_price(quantity: int, price: float):
     """
     Calculate the total price including tax for a given quantity of items.
@@ -29,7 +29,7 @@ def calculate_price(quantity: int, price: float):
 Parameters can be documented using Pydantic's Field annotations:
 
 ```python
-@agent()
+@tool()
 def format_currency(
     amount: Annotated[float, Field(
         description="The amount to format"
@@ -41,7 +41,7 @@ def format_currency(
     """
     Format a monetary amount with its currency symbol
     """
-    return f"${amount:.2f}" if currency == "USD" else f"€{amount:.2f}"
+    return f"${amount:.2f}" if currency == "USD" else f"EUR {amount:.2f}"
 ```
 
 ### Using the Decorator
@@ -49,7 +49,7 @@ def format_currency(
 You can also provide a name and description in the decorator itself:
 
 ```python
-@agent(
+@tool(
     name="convert_temperature",  # Override the function name
     description="Convert temperatures between Celsius and Fahrenheit"
 )
@@ -68,24 +68,25 @@ def temp_convert(
 
 ## Basic Examples
 
-- Single decorator interface for creating function-calling agents
+- Single decorator interface for creating function-calling tools
 - Support for synchronous and asynchronous functions
 - Automatic JSON schema generation from Python type hints
 - Compatible with OpenAI, Anthropic, and Google Gemini APIs
-- Support for both function and class-based agents
+- Support for both function and class-based tools
 - Pydantic integration for input validation
 
 ## Usage
 
 ### Basic Examples
 
-#### Single Agent
+#### Single Tool
+
 ```python
 from typing import Annotated
 from pydantic import Field
-from ai_agents.agent import agent
+from ai_agents.tool import tool
 
-@agent()
+@tool()
 def say_hello(name: Annotated[str, Field(description="Name of the person to greet")]):
     """
     Use this function to say hello to someone
@@ -93,13 +94,15 @@ def say_hello(name: Annotated[str, Field(description="Name of the person to gree
     return f"Hello, {name}!"
 ```
 
-#### Multiple Agents
+#### Multiple Tools
+
 ```python
 from typing import Annotated
 from pydantic import Field
-from ai_agents.agent import agent
+from ai_agents.tool import tool
+from ai_agents.tool_collection_openai import ToolCollectionOpenAI
 
-@agent()
+@tool()
 def calculate_area(length: Annotated[float, Field(description="Length of the rectangle")],
                   width: Annotated[float, Field(description="Width of the rectangle")]):
     """
@@ -107,7 +110,7 @@ def calculate_area(length: Annotated[float, Field(description="Length of the rec
     """
     return length * width
 
-@agent()
+@tool()
 def format_result(number: Annotated[float, Field(description="Number to format")],
                  unit: Annotated[str, Field(description="Unit of measurement")]):
     """
@@ -115,13 +118,13 @@ def format_result(number: Annotated[float, Field(description="Number to format")
     """
     return f"{number:.2f} {unit}"
 
-# Create collection with both agents
-collection = AgentCollectionOpenAI(calculate_area, format_result)
+# Create collection with both tools
+collection = ToolCollectionOpenAI(calculate_area, format_result)
 ```
 
 ### Function Return Values
 
-When invoking functions through the agent collection, the results are wrapped in a `FunctionOutputPayload` class:
+When invoking functions through the tool collection, the results are wrapped in a `FunctionOutputPayload` class:
 
 ```python
 @dataclasses.dataclass
@@ -145,10 +148,10 @@ This design allows you to maintain provider-specific context while working with 
 
 ```python
 from openai import OpenAI
-from ai_agents.agent_collection_openai import AgentCollectionOpenAI
+from ai_agents.tool_collection_openai import ToolCollectionOpenAI
 
-# Create an agent collection
-collection = AgentCollectionOpenAI(say_hello)
+# Create a tool collection
+collection = ToolCollectionOpenAI(say_hello)
 
 # Get tools for OpenAI
 tools = collection.tools()
@@ -177,10 +180,10 @@ tool_call_id = result["say_hello"].extras["tool_call_id"]
 
 ```python
 import anthropic
-from ai_agents.agent_collection_anthropic import AgentCollectionAnthropic
+from ai_agents.tool_collection_anthropic import ToolCollectionAnthropic
 
-# Create an agent collection
-collection = AgentCollectionAnthropic(say_hello)
+# Create a tool collection
+collection = ToolCollectionAnthropic(say_hello)
 
 # Get tools for Anthropic
 tools = collection.tools()
@@ -209,10 +212,10 @@ greeting = result["say_hello"].result  # "Hello, Alice!"
 ```python
 from google import genai
 from google.genai import types
-from ai_agents.agent_collection_gemini import AgentCollectionGemini
+from ai_agents.tool_collection_gemini import ToolCollectionGemini
 
-# Create an agent collection
-collection = AgentCollectionGemini(say_hello)
+# Create a tool collection
+collection = ToolCollectionGemini(say_hello)
 
 # Get tools and config for Gemini
 tools = collection.tools()
@@ -254,7 +257,7 @@ result2 = results["function_name_2"].result
 #### Async Functions
 
 ```python
-@agent()
+@tool()
 async def async_hello(name: str):
     """
     Asynchronous greeting function
@@ -263,10 +266,10 @@ async def async_hello(name: str):
     return f"Hello, {name}!"
 ```
 
-#### Class-based Agents
+#### Class-based Tools
 
 ```python
-@agent()
+@tool()
 class Greeter:
     def __call__(self, name: str):
         return f"Hello, {name}!"
@@ -281,7 +284,7 @@ class Name(BaseModel):
     first_name: str
     last_name: str
 
-@agent()
+@tool()
 def greet_full_name(name: Annotated[Name, Field(description="Full name of the person")]):
     """
     Greet someone using their full name
@@ -292,6 +295,7 @@ def greet_full_name(name: Annotated[Name, Field(description="Full name of the pe
 ## License
 
 MIT License
+
 ## Contributing
 
 While this project is primarily maintained for personal use, contributions are welcome via pull requests. Please note that review times may vary depending on availability.
