@@ -6,8 +6,8 @@ from asyncio import AbstractEventLoop
 from typing import Callable, get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
     Dict, Tuple
 
-import jsonref
-from jsonref import JsonRef
+import jsonref  # type: ignore[import-untyped]
+from jsonref import JsonRef  # type: ignore[import-untyped]
 from pydantic import create_model, BaseModel, Field
 
 RawParameters = Union[str, dict]
@@ -24,7 +24,7 @@ class FunctionInputPayload:
 
 
 @dataclasses.dataclass
-class FunctionOutputPayload:
+class FunctionOutputPayload(Generic[FunctionOutput]):
     result: FunctionOutput
     extras: Optional[Any] = None
 
@@ -60,7 +60,7 @@ class ToolCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
         """
         ...
 
-    async def invoke_fn_async(self, *functions: FunctionInput) -> Dict[str, FunctionOutputPayload]:
+    async def invoke_fn_async(self, *functions: FunctionInput) -> Dict[str, FunctionOutputPayload[FunctionOutput]]:
         assert len(functions) > 0, "At least one function must be provided"
 
         async def run_as_async(_name, _params, _extras):
@@ -80,7 +80,7 @@ class ToolCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
         return dict(await asyncio.gather(*lambdas))
 
     def invoke_fn(self, *functions: FunctionInput, loop: Optional[AbstractEventLoop] = None) -> Dict[
-        str, FunctionOutputPayload]:
+        str, FunctionOutputPayload[FunctionOutput]]:
         with asyncio.Runner(loop_factory=lambda: _use_or_replace_loop(loop)) as runner:
             return runner.run(self.invoke_fn_async(*functions))
 
@@ -130,12 +130,12 @@ def tool(
             del hints["return"]
 
         # Attach the metadata to the function or class
-        original_func.__tool_metadata__ = ToolMetadata(
+        setattr(original_func, "__tool_metadata__", ToolMetadata(
             name=fn_name,
             description=fn_description,
             model=create_model(fn_name, __doc__=fn_description, **hints),
             is_async=inspect.iscoroutinefunction(func)
-        )
+        ))
         return original_func
 
     return add_tool_metadata
@@ -159,10 +159,10 @@ def call_with_params(fn, params: RawParameters):
     Call the function with parameters as either a JSON string or a dictionary
     """
     metadata = tool_metadata(fn)
-    params = metadata.model.model_validate_json(params) if isinstance(params, str) else metadata.model.model_validate(
+    validated_params = metadata.model.model_validate_json(params) if isinstance(params, str) else metadata.model.model_validate(
         params)
-    params = {k: getattr(params, k) for k in type(params).model_fields.keys()}
-    return fn(**params)
+    param_values = {k: getattr(validated_params, k) for k in type(validated_params).model_fields.keys()}
+    return fn(**param_values)
 
 
 def input_schema(fn) -> JsonRef:

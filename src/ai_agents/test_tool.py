@@ -174,7 +174,7 @@ class TestToolCollection(TestCase):
 
     class DummyCollection(ToolCollection[Any, DummyPayload, str]):
         def tools(self) -> List[Any]:
-            pass
+            return []
 
         def extract_parameters(self, inp) -> FunctionInputPayload:
             return FunctionInputPayload(name=inp.name, arguments=inp.payload)

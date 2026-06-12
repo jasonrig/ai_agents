@@ -29,6 +29,14 @@ def say_goodbye(name: Annotated[str, Field(description="Name of the person to fa
     return f"Goodbye, {name}!"
 
 
+@tool()
+def say_ready():
+    """
+    Use this function to report readiness
+    """
+    return "Ready!"
+
+
 class TestToolCollectionGemini(TestCase):
     def setUp(self):
         try:
@@ -39,6 +47,7 @@ class TestToolCollectionGemini(TestCase):
             self.skipTest("Gemini SDK not installed")
         self.genai = genai
         self.types = types
+        self.ToolCollectionGemini = ToolCollectionGemini
         self.collection = ToolCollectionGemini(say_hello, say_goodbye)
 
     def test_tools(self):
@@ -58,6 +67,20 @@ class TestToolCollectionGemini(TestCase):
         result = self.collection.invoke_fn(function_call)
 
         self.assertEqual({"say_hello": FunctionOutputPayload(result="Hello, Alice!", extras=None)}, result)
+
+    def test_invoke_fn_missing_name_raises(self):
+        function_call = SimpleNamespace(name=None, args={"name": "Alice"})
+
+        with self.assertRaisesRegex(ValueError, "Gemini function call is missing a name"):
+            self.collection.invoke_fn(function_call)
+
+    def test_invoke_fn_without_args_uses_empty_parameters(self):
+        collection = self.ToolCollectionGemini(say_ready)
+        function_call = SimpleNamespace(name="say_ready", args=None)
+
+        result = collection.invoke_fn(function_call)
+
+        self.assertEqual({"say_ready": FunctionOutputPayload(result="Ready!", extras=None)}, result)
 
     @skip_gemini_live_tests
     def test_gemini(self):

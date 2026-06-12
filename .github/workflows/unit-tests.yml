@@ -1,4 +1,4 @@
-name: Unit Tests
+name: CI
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
+  checks:
     name: Python 3.13
     runs-on: ubuntu-latest
 
@@ -28,9 +28,20 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Run ruff
+        run: uv run --locked --all-extras ruff check .
+
+      - name: Run mypy
+        run: uv run --locked --all-extras mypy src/ai_agents
+
       - name: Run unit tests
         env:
           AI_AGENTS_SKIP_OPENAI_LIVE_TESTS: "1"
           AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS: "1"
           AI_AGENTS_SKIP_GEMINI_LIVE_TESTS: "1"
         run: uv run --locked --all-extras python -W error::DeprecationWarning -m unittest discover -s src
+
+      - name: Check typed package marker
+        run: |
+          uv build
+          uv run --locked python -c "import pathlib, tarfile, zipfile; dist = pathlib.Path('dist'); wheel = next(dist.glob('*.whl')); sdist = next(dist.glob('*.tar.gz')); assert 'ai_agents/py.typed' in zipfile.ZipFile(wheel).namelist(); assert any(name.endswith('/src/ai_agents/py.typed') for name in tarfile.open(sdist).getnames())"
