@@ -66,38 +66,32 @@ class TestToolCollectionAnthropic(TestCase):
             self.skipTest("No Anthropic client available. Did you set the ANTHROPIC_API_KEY environment variable?")
 
         tools = self.collection.tools()
-        try:
-            message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                tools=tools,
-                max_tokens=100,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": "Say hello to Alice"
-                    }
-                ]
-            )
-        except Exception:
-            self.skipTest("Call to Anthropic API failed. Check your API key.")
+        message = self.client.messages.create(
+            model="claude-3-haiku-20240307",
+            tools=tools,
+            max_tokens=100,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Say hello to Alice"
+                }
+            ]
+        )
         fn_output = self.collection.invoke_fn(next(filter(lambda x: isinstance(x, self.ToolUseBlock), message.content)))
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice!", fn_output["say_hello"].result)
 
-        try:
-            message = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                tools=tools,
-                max_tokens=100,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": "Say bye to Alice"
-                    }
-                ]
-            )
-        except Exception:
-            self.skipTest("Call to Anthropic API failed. Check your API key.")
+        message = self.client.messages.create(
+            model="claude-3-haiku-20240307",
+            tools=tools,
+            max_tokens=100,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Say bye to Alice"
+                }
+            ]
+        )
         fn_output = self.collection.invoke_fn(next(filter(lambda x: isinstance(x, self.ToolUseBlock), message.content)))
         self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
         self.assertEqual("Goodbye, Alice!", fn_output["say_goodbye"].result)
