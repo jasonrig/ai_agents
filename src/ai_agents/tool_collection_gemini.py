@@ -23,4 +23,6 @@ class ToolCollectionGemini(ToolCollection[Tool, FunctionCall]):
         return tools
 
     def extract_parameters(self, inp: FunctionCall) -> FunctionInputPayload:
-        return FunctionInputPayload(inp.name, inp.args)
+        if inp.name is None:
+            raise ValueError("Gemini function call is missing a name")
+        return FunctionInputPayload(inp.name, inp.args or {})
