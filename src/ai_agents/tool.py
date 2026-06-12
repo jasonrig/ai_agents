@@ -3,7 +3,8 @@ import asyncio
 import dataclasses
 import inspect
 from asyncio import AbstractEventLoop
-from typing import Callable, get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
+from collections.abc import Callable
+from typing import get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
     Dict, Tuple
 
 import jsonref  # type: ignore[import-untyped]
@@ -14,6 +15,7 @@ RawParameters = Union[str, dict]
 ToolType = TypeVar("ToolType")
 FunctionInput = TypeVar("FunctionInput")
 FunctionOutput = TypeVar("FunctionOutput", default=Any)
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 @dataclasses.dataclass
@@ -96,18 +98,15 @@ class ToolMetadata:
 def tool(
         name: Optional[str] = None,
         description: Optional[str] = None
-):
+) -> Callable[[F], F]:
     """
     Create a tool from a function
     :param name: The name of the tool, defaults to the function name
     :param description: The description of the tool, defaults to the function docstring
     """
 
-    def add_tool_metadata(func: Callable):
-
-        # "original_func" is the thing to which we will attach metadata,
-        # "func" is the thing we will infer metadata from
-        original_func = func
+    def add_tool_metadata(func: F) -> F:
+        metadata_source: Callable[..., Any] = func
 
         fn_name = name or func.__name__
         fn_description = description or func.__doc__
@@ -115,9 +114,9 @@ def tool(
         fn_description = fn_description.strip()
 
         if not inspect.isfunction(func) and hasattr(func, "__call__"):
-            func = func.__call__
+            metadata_source = func.__call__
 
-        hints = get_type_hints(func, include_extras=True)
+        hints = get_type_hints(metadata_source, include_extras=True)
 
         # Handle any missing annotations
         for param_name, param_annotation in hints.items():
@@ -130,13 +129,13 @@ def tool(
             del hints["return"]
 
         # Attach the metadata to the function or class
-        setattr(original_func, "__tool_metadata__", ToolMetadata(
+        setattr(func, "__tool_metadata__", ToolMetadata(
             name=fn_name,
             description=fn_description,
             model=create_model(fn_name, __doc__=fn_description, **hints),
-            is_async=inspect.iscoroutinefunction(func)
+            is_async=inspect.iscoroutinefunction(metadata_source)
         ))
-        return original_func
+        return func
 
     return add_tool_metadata
 
