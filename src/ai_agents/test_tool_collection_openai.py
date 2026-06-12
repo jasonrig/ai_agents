@@ -1,10 +1,16 @@
+import os
+from types import SimpleNamespace
 from typing import Annotated
-from unittest import TestCase
+from unittest import TestCase, skipIf
 
-from openai import OpenAIError
 from pydantic import Field, BaseModel
 
-from ai_agents.agent import agent
+from ai_agents.tool import tool, FunctionOutputPayload
+
+skip_openai_live_tests = skipIf(
+    os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"),
+    "AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set",
+)
 
 
 class Name(BaseModel):
@@ -12,7 +18,7 @@ class Name(BaseModel):
     last_name: str
 
 
-@agent()
+@tool()
 def say_hello(name: Annotated[Name, Field(description="Name of the person to greet")]):
     """
     Use this function to say hello to someone
@@ -20,7 +26,7 @@ def say_hello(name: Annotated[Name, Field(description="Name of the person to gre
     return f"Hello, {name.first_name} {name.last_name}!"
 
 
-@agent()
+@tool()
 def say_goodbye(name: Annotated[Name, Field(description="Name of the person to farewell")]):
     """
     Use this function to say goodbye to someone
@@ -28,7 +34,7 @@ def say_goodbye(name: Annotated[Name, Field(description="Name of the person to f
     return f"Goodbye, {name.first_name} {name.last_name}!"
 
 
-class TestAgentCollectionOpenAI(TestCase):
+class TestToolCollectionOpenAI(TestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.maxDiff = None
@@ -36,15 +42,11 @@ class TestAgentCollectionOpenAI(TestCase):
     def setUp(self):
         try:
             import openai
-            from ai_agents.agent_collection_openai import AgentCollectionOpenAI
+            from ai_agents.tool_collection_openai import ToolCollectionOpenAI
         except ImportError:
             self.skipTest("OpenAI SDK not installed")
-        self.client = None
-        try:
-            self.client = openai.Client()
-        except OpenAIError:
-            self.client = None
-        self.collection = AgentCollectionOpenAI(say_hello, say_goodbye)
+        self.openai = openai
+        self.collection = ToolCollectionOpenAI(say_hello, say_goodbye)
 
     def test_tools_non_strict(self):
         all_tools = sorted(self.collection.tools(strict=False), key=lambda x: x["function"]["name"])
@@ -162,11 +164,29 @@ class TestAgentCollectionOpenAI(TestCase):
             }
         }, all_tools[1])
 
+    def test_invoke_fn_with_tool_call_payload(self):
+        tool_call = SimpleNamespace(
+            id="call_123",
+            function=SimpleNamespace(
+                name="say_hello",
+                arguments='{"name": {"first_name": "Alice", "last_name": "Peterson"}}',
+            ),
+        )
+
+        result = self.collection.invoke_fn(tool_call)
+
+        self.assertEqual({
+            "say_hello": FunctionOutputPayload(
+                result="Hello, Alice Peterson!",
+                extras={"tool_call_id": "call_123"},
+            )
+        }, result)
+
+    @skip_openai_live_tests
     def test_openai_non_strict(self):
-        if self.client is None:
-            self.skipTest("No OpenAI client available. Did you set the OPENAI_API_KEY environment variable?")
+        client = self.openai.Client()
         tools = self.collection.tools(strict=False)
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -181,7 +201,7 @@ class TestAgentCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -196,11 +216,11 @@ class TestAgentCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_goodbye"].extras["tool_call_id"])
         self.assertEqual("Goodbye, Alice Peterson!", fn_output["say_goodbye"].result)
 
+    @skip_openai_live_tests
     def test_openai_strict(self):
-        if self.client is None:
-            self.skipTest("No OpenAI client available. Did you set the OPENAI_API_KEY environment variable?")
+        client = self.openai.Client()
         tools = self.collection.tools(strict=True)
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -215,7 +235,7 @@ class TestAgentCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o-mini",
             tools=tools,
             max_tokens=100,

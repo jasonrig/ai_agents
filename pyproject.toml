@@ -1,24 +1,24 @@
 [project]
 name = "ai-agents"
-version = "1.0.0"
-description = "Simple AI agent decorator for LLMs usage"
-requires-python = ">=3.9"
+version = "2.0.0"
+description = "Simple AI tool decorator for LLM provider usage"
+requires-python = ">=3.13"
 authors = [
     { name = "Jason Rigby", email = "hello@jasonrig.by" },
 ]
 dependencies = [
-    "pydantic>=2.0.0",
+    "pydantic>=2.13.4",
     "jsonref>=1.1.0",
 ]
 [project.optional-dependencies]
 gemini = [
-    "google-genai>=1.0.0",
+    "google-genai>=2.8.0",
 ]
 anthropic = [
-    "anthropic>=0.45.0"
+    "anthropic>=0.109.1",
 ]
 openai = [
-    "openai>=1.61.0"
+    "openai>=2.41.1",
 ]
 
 [tool.uv]

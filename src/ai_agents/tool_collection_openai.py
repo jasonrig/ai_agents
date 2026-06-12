@@ -3,7 +3,7 @@ from typing import TypedDict, Literal, List
 
 from openai.types.chat import ChatCompletionMessageToolCall
 
-from ai_agents.agent import AgentCollection, input_schema, FunctionInputPayload
+from ai_agents.tool import ToolCollection, input_schema, FunctionInputPayload
 
 
 class OpenAITool(TypedDict):
@@ -11,7 +11,7 @@ class OpenAITool(TypedDict):
     function: dict
 
 
-class AgentCollectionOpenAI(AgentCollection[OpenAITool, ChatCompletionMessageToolCall]):
+class ToolCollectionOpenAI(ToolCollection[OpenAITool, ChatCompletionMessageToolCall]):
     def tools(self, strict=True) -> List[OpenAITool]:
         def set_additional_properties_false(obj):
             if "properties" in obj:
@@ -21,8 +21,8 @@ class AgentCollectionOpenAI(AgentCollection[OpenAITool, ChatCompletionMessageToo
                 obj["additionalProperties"] = False
 
         tools = list()
-        for metadata, agent in self._agents.values():
-            schema = input_schema(agent)
+        for metadata, callable_tool in self._tools.values():
+            schema = input_schema(callable_tool)
             del schema["description"]
 
             if strict:
