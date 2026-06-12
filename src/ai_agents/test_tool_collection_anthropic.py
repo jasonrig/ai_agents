@@ -32,8 +32,8 @@ class TestToolCollectionAnthropic(TestCase):
             from ai_agents.tool_collection_anthropic import ToolCollectionAnthropic
         except ImportError:
             self.skipTest("Anthropic SDK not installed")
+        self.anthropic = anthropic
         self.ToolUseBlock = ToolUseBlock
-        self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
         self.collection = ToolCollectionAnthropic(say_hello, say_goodbye)
 
     def test_tools(self):
@@ -62,11 +62,12 @@ class TestToolCollectionAnthropic(TestCase):
         }, result)
 
     def test_anthropic(self):
-        if self.client is None:
-            self.skipTest("No Anthropic client available. Did you set the ANTHROPIC_API_KEY environment variable?")
+        if os.environ.get("AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS"):
+            self.skipTest("AI_AGENTS_SKIP_ANTHROPIC_LIVE_TESTS is set")
 
+        client = self.anthropic.Anthropic()
         tools = self.collection.tools()
-        message = self.client.messages.create(
+        message = client.messages.create(
             model="claude-3-haiku-20240307",
             tools=tools,
             max_tokens=100,
@@ -81,7 +82,7 @@ class TestToolCollectionAnthropic(TestCase):
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice!", fn_output["say_hello"].result)
 
-        message = self.client.messages.create(
+        message = client.messages.create(
             model="claude-3-haiku-20240307",
             tools=tools,
             max_tokens=100,

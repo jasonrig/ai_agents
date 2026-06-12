@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 from typing import Annotated
 from unittest import TestCase
@@ -36,15 +37,10 @@ class TestToolCollectionOpenAI(TestCase):
     def setUp(self):
         try:
             import openai
-            from openai import OpenAIError
             from ai_agents.tool_collection_openai import ToolCollectionOpenAI
         except ImportError:
             self.skipTest("OpenAI SDK not installed")
-        self.client = None
-        try:
-            self.client = openai.Client()
-        except OpenAIError:
-            self.client = None
+        self.openai = openai
         self.collection = ToolCollectionOpenAI(say_hello, say_goodbye)
 
     def test_tools_non_strict(self):
@@ -182,10 +178,12 @@ class TestToolCollectionOpenAI(TestCase):
         }, result)
 
     def test_openai_non_strict(self):
-        if self.client is None:
-            self.skipTest("No OpenAI client available. Did you set the OPENAI_API_KEY environment variable?")
+        if os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"):
+            self.skipTest("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set")
+
+        client = self.openai.Client()
         tools = self.collection.tools(strict=False)
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -200,7 +198,7 @@ class TestToolCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -216,10 +214,12 @@ class TestToolCollectionOpenAI(TestCase):
         self.assertEqual("Goodbye, Alice Peterson!", fn_output["say_goodbye"].result)
 
     def test_openai_strict(self):
-        if self.client is None:
-            self.skipTest("No OpenAI client available. Did you set the OPENAI_API_KEY environment variable?")
+        if os.environ.get("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS"):
+            self.skipTest("AI_AGENTS_SKIP_OPENAI_LIVE_TESTS is set")
+
+        client = self.openai.Client()
         tools = self.collection.tools(strict=True)
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o",
             tools=tools,
             max_tokens=100,
@@ -234,7 +234,7 @@ class TestToolCollectionOpenAI(TestCase):
         self.assertIsNotNone(fn_output["say_hello"].extras["tool_call_id"])
         self.assertEqual("Hello, Alice Peterson!", fn_output["say_hello"].result)
 
-        message = self.client.chat.completions.create(
+        message = client.chat.completions.create(
             model="gpt-4o-mini",
             tools=tools,
             max_tokens=100,
