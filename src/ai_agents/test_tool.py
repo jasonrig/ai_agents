@@ -200,3 +200,20 @@ class TestToolCollection(TestCase):
         self.assertDictEqual({"say_hello": FunctionOutputPayload(result='Hello, Alice!', extras=None),
                               "say_hello_async": FunctionOutputPayload(result='Hello, Bob!', extras=None)},
                              multi_fn_result)
+
+    def test_mapping_lookup(self):
+        metadata, callable_tool = self.collection["say_hello"]
+        self.assertEqual("say_hello", metadata.name)
+        self.assertIs(say_hello, callable_tool)
+
+    def test_mapping_views(self):
+        self.assertEqual(["say_hello", "say_hello_async"], list(self.collection.keys()))
+        self.assertEqual(["say_hello", "say_hello_async"], [metadata.name for metadata, _ in self.collection.values()])
+        self.assertEqual(
+            [("say_hello", "say_hello"), ("say_hello_async", "say_hello_async")],
+            [(name, metadata.name) for name, (metadata, _) in self.collection.items()]
+        )
+
+    def test_mapping_is_read_only(self):
+        with self.assertRaises(TypeError):
+            self.collection["say_goodbye"] = (tool_metadata(say_hello), say_hello)  # type: ignore[index]
