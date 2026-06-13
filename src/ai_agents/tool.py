@@ -13,16 +13,27 @@ from jsonref import JsonRef  # type: ignore[import-untyped]
 from pydantic import create_model, BaseModel, Field
 
 RawParameters = Union[str, dict]
+
+# Collection generics: provider-specific tool shape, incoming payload type, and tool return type.
 ToolType = TypeVar("ToolType")
 FunctionInput = TypeVar("FunctionInput")
 FunctionOutput = TypeVar("FunctionOutput", default=Any)
+
+# Generic helper type variables for decorated callables and direct call_with_params() usage.
 F = TypeVar("F", bound=collections_abc.Callable[..., Any])
 ReturnType = TypeVar("ReturnType")
+
+# Registered tools are either sync callables or async callables, and we keep that distinction in storage.
 SyncToolCallable = collections_abc.Callable[..., FunctionOutput]
 AsyncToolCallable = collections_abc.Callable[..., Awaitable[FunctionOutput]]
 SyncToolEntry = Tuple["SyncToolMetadata", SyncToolCallable]
 AsyncToolEntry = Tuple["AsyncToolMetadata", AsyncToolCallable]
 ToolEntry = SyncToolEntry | AsyncToolEntry
+
+# Hooks operate on raw parameters, resolved results, or the advertised LLM-visible tool entries.
+PreToolCallHook = collections_abc.Callable[["ToolMetadata", RawParameters], RawParameters]
+PostToolCallHook = collections_abc.Callable[["ToolMetadata", FunctionOutput], FunctionOutput]
+OnToolListHook = collections_abc.Callable[[list[ToolEntry]], collections_abc.Iterable[ToolEntry]]
 
 
 @dataclasses.dataclass
@@ -63,7 +74,13 @@ def _is_sync_result(
 
 
 class ToolCollection(collections_abc.Mapping[str, ToolEntry], abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
-    def __init__(self, *tools: SyncToolCallable | AsyncToolCallable):
+    def __init__(
+            self,
+            *tools: SyncToolCallable | AsyncToolCallable,
+            pre_tool_call_hooks: Optional[collections_abc.Iterable[PreToolCallHook]] = None,
+            post_tool_call_hooks: Optional[collections_abc.Iterable[PostToolCallHook]] = None,
+            on_tool_list_hooks: Optional[collections_abc.Iterable[OnToolListHook]] = None,
+    ):
         tools_by_name: Dict[str, ToolEntry] = dict()
         for candidate_tool in tools:
             metadata = tool_metadata(candidate_tool)
@@ -86,10 +103,19 @@ class ToolCollection(collections_abc.Mapping[str, ToolEntry], abc.ABC, Generic[T
                     candidate_tool
                 )
         self._tools: Mapping[str, ToolEntry] = MappingProxyType(tools_by_name)
+        self._pre_tool_call_hooks = tuple(pre_tool_call_hooks or ())
+        self._post_tool_call_hooks = tuple(post_tool_call_hooks or ())
+        self._on_tool_list_hooks = tuple(on_tool_list_hooks or ())
 
     def __call__(self, name, params: RawParameters) -> FunctionOutput | Awaitable[FunctionOutput]:
-        _, callable_tool = self[name]
-        return call_with_params(callable_tool, params)
+        metadata, callable_tool = self[name]
+        hooked_params = self._apply_pre_tool_call_hooks(metadata, params)
+        result = call_with_params(callable_tool, hooked_params)
+        if _is_awaitable_result(result):
+            return self._apply_post_tool_call_hooks_async(metadata, result)
+        if _is_sync_result(result):
+            return self._apply_post_tool_call_hooks(metadata, result)
+        raise TypeError(f"Tool {name} returned an unsupported result type")
 
     def __getitem__(self, key: str) -> ToolEntry:
         return self._tools[key]
@@ -99,6 +125,29 @@ class ToolCollection(collections_abc.Mapping[str, ToolEntry], abc.ABC, Generic[T
 
     def __len__(self) -> int:
         return len(self._tools)
+
+    def _apply_pre_tool_call_hooks(self, metadata: "ToolMetadata", params: RawParameters) -> RawParameters:
+        for hook in self._pre_tool_call_hooks:
+            params = hook(metadata, params)
+        return params
+
+    def _apply_post_tool_call_hooks(self, metadata: "ToolMetadata", result: FunctionOutput) -> FunctionOutput:
+        for hook in self._post_tool_call_hooks:
+            result = hook(metadata, result)
+        return result
+
+    async def _apply_post_tool_call_hooks_async(
+            self,
+            metadata: "ToolMetadata",
+            result: Awaitable[FunctionOutput]
+    ) -> FunctionOutput:
+        return self._apply_post_tool_call_hooks(metadata, await result)
+
+    def _tools_for_llm(self) -> list[ToolEntry]:
+        entries = list(self._tools.values())
+        for hook in self._on_tool_list_hooks:
+            entries = list(hook(entries))
+        return entries
 
     @abc.abstractmethod
     def tools(self) -> List[ToolType]:

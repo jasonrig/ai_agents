@@ -1,6 +1,6 @@
 [project]
 name = "ai-agents"
-version = "2.1.0"
+version = "2.2.0"
 description = "Simple AI tool decorator for LLM provider usage"
 requires-python = ">=3.13"
 authors = [
