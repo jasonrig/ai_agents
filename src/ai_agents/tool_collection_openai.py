@@ -21,7 +21,7 @@ class ToolCollectionOpenAI(ToolCollection[OpenAITool, ChatCompletionMessageToolC
                 obj["additionalProperties"] = False
 
         tools: List[OpenAITool] = list()
-        for metadata, callable_tool in self._tools.values():
+        for metadata, callable_tool in self.values():
             schema = input_schema(callable_tool)
             del schema["description"]
 

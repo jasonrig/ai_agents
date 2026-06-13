@@ -8,7 +8,7 @@ from ai_agents.tool import ToolCollection, input_schema, FunctionInputPayload
 class ToolCollectionGemini(ToolCollection[Tool, FunctionCall]):
     def tools(self) -> List[Tool]:
         tools = list()
-        for metadata, callable_tool in self._tools.values():
+        for metadata, callable_tool in self.values():
             schema = input_schema(callable_tool)
             del schema["description"]
             tools.append(Tool(

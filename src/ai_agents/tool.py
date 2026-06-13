@@ -2,9 +2,10 @@ import abc
 import asyncio
 import dataclasses
 import inspect
+from collections import abc as collections_abc
 from asyncio import AbstractEventLoop
-from collections.abc import Callable
-from typing import get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
+from types import MappingProxyType
+from typing import Awaitable, Iterator, Mapping, cast, get_type_hints, get_args, Optional, Type, Union, List, Annotated, TypeVar, Generic, Any, \
     Dict, Tuple
 
 import jsonref  # type: ignore[import-untyped]
@@ -15,7 +16,8 @@ RawParameters = Union[str, dict]
 ToolType = TypeVar("ToolType")
 FunctionInput = TypeVar("FunctionInput")
 FunctionOutput = TypeVar("FunctionOutput", default=Any)
-F = TypeVar("F", bound=Callable[..., Any])
+F = TypeVar("F", bound=collections_abc.Callable[..., Any])
+ToolEntry = Tuple["ToolMetadata", collections_abc.Callable[..., Any]]
 
 
 @dataclasses.dataclass
@@ -37,16 +39,26 @@ def _use_or_replace_loop(current_loop: Optional[AbstractEventLoop]) -> AbstractE
     return current_loop
 
 
-class ToolCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
-    def __init__(self, *tools: Callable):
-        self._tools: Dict[str, Tuple[ToolMetadata, Callable]] = dict()
+class ToolCollection(collections_abc.Mapping[str, ToolEntry], abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
+    def __init__(self, *tools: collections_abc.Callable):
+        tools_by_name: Dict[str, ToolEntry] = dict()
         for candidate_tool in tools:
             metadata = tool_metadata(candidate_tool)
-            self._tools[metadata.name] = (metadata, candidate_tool)
+            tools_by_name[metadata.name] = (metadata, candidate_tool)
+        self._tools: Mapping[str, ToolEntry] = MappingProxyType(tools_by_name)
 
     def __call__(self, name, params: RawParameters) -> FunctionOutput:
-        _, callable_tool = self._tools[name]
-        return call_with_params(callable_tool, params)
+        _, callable_tool = self[name]
+        return cast(FunctionOutput, call_with_params(callable_tool, params))
+
+    def __getitem__(self, key: str) -> ToolEntry:
+        return self._tools[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._tools)
+
+    def __len__(self) -> int:
+        return len(self._tools)
 
     @abc.abstractmethod
     def tools(self) -> List[ToolType]:
@@ -65,21 +77,33 @@ class ToolCollection(abc.ABC, Generic[ToolType, FunctionInput, FunctionOutput]):
     async def invoke_fn_async(self, *functions: FunctionInput) -> Dict[str, FunctionOutputPayload[FunctionOutput]]:
         assert len(functions) > 0, "At least one function must be provided"
 
-        async def run_as_async(_name, _params, _extras):
-            return _name, FunctionOutputPayload(result=self(_name, _params), extras=_extras)
+        async def run_as_async(
+                _name: str,
+                _params: RawParameters,
+                _extras: Any
+        ) -> tuple[str, FunctionOutputPayload[FunctionOutput]]:
+            _, callable_tool = self[_name]
+            result = cast(FunctionOutput, call_with_params(callable_tool, _params))
+            return _name, FunctionOutputPayload(result=result, extras=_extras)
 
-        async def run(_name, _params, _extras):
-            return _name, FunctionOutputPayload(result=await self(_name, _params), extras=_extras)
+        async def run(
+                _name: str,
+                _params: RawParameters,
+                _extras: Any
+        ) -> tuple[str, FunctionOutputPayload[FunctionOutput]]:
+            _, callable_tool = self[_name]
+            result = cast(Awaitable[FunctionOutput], call_with_params(callable_tool, _params))
+            return _name, FunctionOutputPayload(result=await result, extras=_extras)
 
-        lambdas = list()
+        lambdas: list[Awaitable[tuple[str, FunctionOutputPayload[FunctionOutput]]]] = []
         for function in functions:
             params = self.extract_parameters(function)
-            metadata, _ = self._tools[params.name]
+            metadata, _ = self[params.name]
             if not metadata.is_async:
                 lambdas.append(run_as_async(params.name, params.arguments, params.extras))
             else:
                 lambdas.append(run(params.name, params.arguments, params.extras))
-        return dict(await asyncio.gather(*lambdas))
+        return {name: payload for name, payload in await asyncio.gather(*lambdas)}
 
     def invoke_fn(self, *functions: FunctionInput, loop: Optional[AbstractEventLoop] = None) -> Dict[
         str, FunctionOutputPayload[FunctionOutput]]:
@@ -98,7 +122,7 @@ class ToolMetadata:
 def tool(
         name: Optional[str] = None,
         description: Optional[str] = None
-) -> Callable[[F], F]:
+) -> collections_abc.Callable[[F], F]:
     """
     Create a tool from a function
     :param name: The name of the tool, defaults to the function name
@@ -106,7 +130,7 @@ def tool(
     """
 
     def add_tool_metadata(func: F) -> F:
-        metadata_source: Callable[..., Any] = func
+        metadata_source: collections_abc.Callable[..., Any] = func
 
         fn_name = name or func.__name__
         fn_description = description or func.__doc__
@@ -145,7 +169,7 @@ class ToolNotDecoratedError(Exception):
     pass
 
 
-def tool_metadata(fn: Callable) -> ToolMetadata:
+def tool_metadata(fn: collections_abc.Callable) -> ToolMetadata:
     try:
         return getattr(fn, "__tool_metadata__")
     except AttributeError as e:
