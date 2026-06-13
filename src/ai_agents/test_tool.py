@@ -174,7 +174,7 @@ class TestToolCollection(TestCase):
 
     class DummyCollection(ToolCollection[Any, DummyPayload, str]):
         def tools(self) -> List[Any]:
-            return []
+            return [metadata.name for metadata, _ in self._tools_for_llm()]
 
         def extract_parameters(self, inp) -> FunctionInputPayload:
             return FunctionInputPayload(name=inp.name, arguments=inp.payload)
@@ -217,3 +217,77 @@ class TestToolCollection(TestCase):
     def test_mapping_is_read_only(self):
         with self.assertRaises(TypeError):
             self.collection["say_goodbye"] = (tool_metadata(say_hello), say_hello)  # type: ignore[index]
+
+    def test_pre_tool_call_hook_can_modify_arguments(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello,
+            pre_tool_call_hooks=[
+                lambda metadata, params: {"name": "Bob"} if metadata.name == "say_hello" else params
+            ],
+        )
+
+        result = collection.invoke_fn(
+            TestToolCollection.DummyPayload(name="say_hello", payload={"name": "Alice"}))
+
+        self.assertEqual("Hello, Bob!", result["say_hello"].result)
+
+    def test_post_tool_call_hook_can_modify_result(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello,
+            post_tool_call_hooks=[
+                lambda metadata, result: f"{result} Hooked" if metadata.name == "say_hello" else result
+            ],
+        )
+
+        result = collection.invoke_fn(
+            TestToolCollection.DummyPayload(name="say_hello", payload={"name": "Alice"}))
+
+        self.assertEqual("Hello, Alice! Hooked", result["say_hello"].result)
+
+    def test_post_tool_call_hook_applies_to_async_tools(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello_async,
+            post_tool_call_hooks=[
+                lambda metadata, result: f"{result} Hooked" if metadata.name == "say_hello_async" else result
+            ],
+        )
+
+        result = collection.invoke_fn(
+            TestToolCollection.DummyPayload(name="say_hello_async", payload={"name": "Alice"}))
+
+        self.assertEqual("Hello, Alice! Hooked", result["say_hello_async"].result)
+
+    def test_on_tool_list_hook_can_filter_tools(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello,
+            say_hello_async,
+            on_tool_list_hooks=[
+                lambda entries: [entry for entry in entries if entry[0].name != "say_hello_async"]
+            ],
+        )
+
+        self.assertEqual(["say_hello"], collection.tools())
+
+    def test_on_tool_list_hook_can_reorder_tools(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello,
+            say_hello_async,
+            on_tool_list_hooks=[
+                lambda entries: reversed(entries)
+            ],
+        )
+
+        self.assertEqual(["say_hello_async", "say_hello"], collection.tools())
+
+    def test_tools_for_llm_is_filtered_snapshot(self):
+        collection = TestToolCollection.DummyCollection(
+            say_hello,
+            say_hello_async,
+            on_tool_list_hooks=[
+                lambda entries: [entry for entry in entries if entry[0].name != "say_hello"]
+            ],
+        )
+
+        entries = collection._tools_for_llm()
+
+        self.assertEqual(["say_hello_async"], [metadata.name for metadata, _ in entries])
