@@ -6,7 +6,7 @@ from unittest import TestCase
 from pydantic import Field
 
 from ai_agents.tool import tool, call_with_params, input_schema, tool_metadata, ToolCollection, \
-    FunctionInputPayload, FunctionOutputPayload, ToolNotDecoratedError
+    FunctionInputPayload, FunctionOutputPayload, ToolMetadata, ToolNotDecoratedError
 
 
 # Plain tool with no annotations
@@ -267,6 +267,7 @@ class TestToolCollection(TestCase):
         )
 
         self.assertEqual(["say_hello"], collection.tools())
+        self.assertEqual(["say_hello"], [metadata.name for metadata in collection.visible_tools()])
 
     def test_on_tool_list_hook_can_reorder_tools(self):
         collection = TestToolCollection.DummyCollection(
@@ -278,6 +279,28 @@ class TestToolCollection(TestCase):
         )
 
         self.assertEqual(["say_hello_async", "say_hello"], collection.tools())
+        self.assertEqual(["say_hello_async", "say_hello"], [metadata.name for metadata in collection.visible_tools()])
+
+    def test_visible_tools_exposes_metadata(self):
+        collection = TestToolCollection.DummyCollection(say_hello, say_hello_async)
+
+        visible_tools = collection.visible_tools()
+
+        self.assertTrue(all(isinstance(metadata, ToolMetadata) for metadata in visible_tools))
+        self.assertEqual(["say_hello", "say_hello_async"], [metadata.name for metadata in visible_tools])
+        self.assertEqual(["A greeting tool", "An async greeting tool"], [metadata.description for metadata in visible_tools])
+        self.assertEqual([False, True], [metadata.is_async for metadata in visible_tools])
+        self.assertIs(tool_metadata(say_hello).model, visible_tools[0].model)
+
+    def test_visible_tools_returns_detached_metadata(self):
+        collection = TestToolCollection.DummyCollection(say_hello, say_hello_async)
+
+        visible_tools = collection.visible_tools()
+        visible_tools[0].name = "renamed"
+        visible_tools[0].description = "Changed description"
+
+        self.assertEqual(["say_hello", "say_hello_async"], collection.tools())
+        self.assertEqual(["say_hello", "say_hello_async"], [metadata.name for metadata in collection.visible_tools()])
 
     def test_tools_for_llm_is_filtered_snapshot(self):
         collection = TestToolCollection.DummyCollection(

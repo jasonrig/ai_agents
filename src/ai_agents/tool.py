@@ -149,6 +149,12 @@ class ToolCollection(collections_abc.Mapping[str, ToolEntry], abc.ABC, Generic[T
             entries = list(hook(entries))
         return entries
 
+    def visible_tools(self) -> list["ToolMetadata"]:
+        """
+        Return metadata copies for tools currently visible to the LLM after tool-list hooks run.
+        """
+        return [dataclasses.replace(metadata) for metadata, _ in self._tools_for_llm()]
+
     @abc.abstractmethod
     def tools(self) -> List[ToolType]:
         """
